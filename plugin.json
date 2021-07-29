@@ -1,0 +1,32 @@
+{
+    "id": "com.mattermost.moodle-sync",
+    "name": "Moodle course sync plugin",
+    "description": "Mattermost plugin to sync courses and users with Moodle.",
+    "version": "0.1.0",
+    "min_server_version": "5.12.0",
+    "server": {
+        "executables": {
+            "linux-amd64": "server/dist/plugin-linux-amd64",
+            "darwin-amd64": "server/dist/plugin-darwin-amd64",
+            "darwin-arm64": "server/dist/plugin-darwin-arm64",
+            "windows-amd64": "server/dist/plugin-windows-amd64.exe"
+        }
+    },
+    "webapp": {
+        "bundle_path": "webapp/dist/main.js"
+    },
+    "settings_schema": {
+        "header": "",
+        "footer": "",
+        "settings": [
+            {
+                "key": "WebhookSecret",
+                "display_name": "Webhook Secret:",
+                "type": "generated",
+                "help_text": "The webhook secret set in Moodle.",
+                "regenerate_help_text": "Regenerates the secret for Moodle Course Sync Plugin. Regenerating this key invalidates any existing token.",
+                "default": null
+            }
+        ]
+    }
+}
