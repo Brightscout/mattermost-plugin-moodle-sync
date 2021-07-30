@@ -8,7 +8,7 @@ import (
 
 const (
 	BotUserName    = "moodle"
-	BotDisplayName = "Moodle Bot"
+	BotDisplayName = "Moodle"
 	BotDescription = "A bot account created by the moodle sync plugin."
 )
 
