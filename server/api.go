@@ -9,6 +9,7 @@ import (
 	"runtime/debug"
 
 	"github.com/Brightscout/x-mattermost-plugin-moodle-sync/server/constants"
+	"github.com/Brightscout/x-mattermost-plugin-moodle-sync/server/serializer"
 	"github.com/pkg/errors"
 
 	"github.com/gorilla/mux"
@@ -49,30 +50,38 @@ func (p *Plugin) createChannelInTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	teamName := r.URL.Query().Get("team_name")
-	team, teamErr := p.API.GetTeamByName(teamName)
-	if teamErr != nil {
-		http.Error(w, fmt.Sprintf("Invalid team name. Error: %v", teamErr.Error()), http.StatusBadRequest)
-		return
-	}
-
-	channel := model.ChannelFromJson(r.Body)
-	if channel == nil {
+	channelObj := serializer.ChannelFromJSON(r.Body)
+	if channelObj == nil {
 		p.API.LogDebug("Invalid request body")
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	if channel.Name == "" {
+	if channelObj.Name == "" {
 		p.API.LogDebug("Error: name cannot be empty")
 		http.Error(w, "Error: name cannot be empty", http.StatusBadRequest)
 		return
 	}
 
-	channel.TeamId = team.Id
-	channel.Type = model.CHANNEL_PRIVATE
-	channel.CreatorId = p.botID
-	channel.DisplayName = channel.Name
+	if channelObj.TeamName == "" {
+		p.API.LogDebug("Error: team_name cannot be empty")
+		http.Error(w, "Error: team_name cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	team, teamErr := p.API.GetTeamByName(channelObj.TeamName)
+	if teamErr != nil {
+		http.Error(w, fmt.Sprintf("Invalid team name. Error: %v", teamErr.Error()), http.StatusBadRequest)
+		return
+	}
+
+	channel := &model.Channel{
+		Name:        channelObj.Name,
+		TeamId:      team.Id,
+		Type:        model.CHANNEL_PRIVATE,
+		CreatorId:   p.botID,
+		DisplayName: channelObj.Name,
+	}
 
 	createdChannel, err := p.API.CreateChannel(channel)
 	if err != nil {
@@ -93,6 +102,7 @@ func (p *Plugin) createChannelInTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_, _ = w.Write([]byte(createdChannel.ToJson()))
 }
