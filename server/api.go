@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"runtime/debug"
 
+	"github.com/Brightscout/x-mattermost-plugin-moodle-sync/server/constants"
+	"github.com/Brightscout/x-mattermost-plugin-moodle-sync/server/serializer"
 	"github.com/pkg/errors"
 
 	"github.com/gorilla/mux"
@@ -23,7 +25,8 @@ func (p *Plugin) InitAPI() *mux.Router {
 	s := r.PathPrefix("/api/v1").Subrouter()
 
 	// Add the custom plugin routes here
-	s.HandleFunc("/test", p.handleTest).Methods(http.MethodPost)
+	s.HandleFunc(constants.PathTest, p.handleTest).Methods(http.MethodPost)
+	s.HandleFunc(constants.CreateChannelInTeam, p.createChannelInTeam).Methods(http.MethodPost)
 
 	// 404 handler
 	r.Handle("{anything:.*}", http.NotFoundHandler())
@@ -38,6 +41,70 @@ func (p *Plugin) handleTest(w http.ResponseWriter, r *http.Request) {
 	}
 
 	returnStatusOK(w)
+}
+
+func (p *Plugin) createChannelInTeam(w http.ResponseWriter, r *http.Request) {
+	if status, err := verifyHTTPSecret(p.configuration.Secret, r.FormValue("secret")); err != nil {
+		p.API.LogError(fmt.Sprintf("Invalid Secret. Error: %v", err.Error()))
+		http.Error(w, err.Error(), status)
+		return
+	}
+
+	channelObj := serializer.ChannelFromJSON(r.Body)
+	if channelObj == nil {
+		p.API.LogDebug("Invalid request body")
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if channelObj.Name == "" {
+		p.API.LogDebug("Error: name cannot be empty")
+		http.Error(w, "Error: name cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	if channelObj.TeamName == "" {
+		p.API.LogDebug("Error: team_name cannot be empty")
+		http.Error(w, "Error: team_name cannot be empty", http.StatusBadRequest)
+		return
+	}
+
+	team, teamErr := p.API.GetTeamByName(channelObj.TeamName)
+	if teamErr != nil {
+		http.Error(w, fmt.Sprintf("Invalid team name. Error: %v", teamErr.Error()), http.StatusBadRequest)
+		return
+	}
+
+	channel := &model.Channel{
+		Name:        channelObj.Name,
+		TeamId:      team.Id,
+		Type:        model.CHANNEL_PRIVATE,
+		CreatorId:   p.botID,
+		DisplayName: channelObj.Name,
+	}
+
+	createdChannel, err := p.API.CreateChannel(channel)
+	if err != nil {
+		p.API.LogDebug(fmt.Sprintf("Failed to create channel. Error: %v", err.Error()))
+		http.Error(w, fmt.Sprintf("Failed to create channel. Error: %v", err.Error()), http.StatusBadRequest)
+		return
+	}
+
+	if _, err = p.API.CreateTeamMember(team.Id, p.botID); err != nil {
+		p.API.LogDebug(fmt.Sprintf("Failed to add bot to team. Error: %v", err.Error()))
+		http.Error(w, fmt.Sprintf("Failed to add bot to team. Error: %v", err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	if _, err = p.API.AddChannelMember(createdChannel.Id, p.botID); err != nil {
+		p.API.LogDebug(fmt.Sprintf("Failed to add bot to channel. Error: %v", err.Error()))
+		http.Error(w, fmt.Sprintf("Failed to add bot to channel. Error: %v", err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	_, _ = w.Write([]byte(createdChannel.ToJson()))
 }
 
 func returnStatusOK(w http.ResponseWriter) {
