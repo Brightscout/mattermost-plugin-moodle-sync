@@ -9,7 +9,7 @@ import (
 )
 
 type User struct {
-	Email       string `json:"email`
+	Email       string `json:"email"`
 	Username    string `json:"username"`
 	TeamName    string `json:"team_name"`
 	AuthService string `json:"auth_service"`

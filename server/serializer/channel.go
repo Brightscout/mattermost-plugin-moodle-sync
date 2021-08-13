@@ -12,7 +12,7 @@ type Channel struct {
 }
 
 type ChannelMember struct {
-	UserId string `json:"user_id"`
+	UserID string `json:"user_id"`
 	Role   string `json:"role"`
 }
 
@@ -49,7 +49,7 @@ func (c *ChannelMember) Validate() error {
 		return errors.New("invalid request body")
 	}
 
-	if c.UserId == "" {
+	if c.UserID == "" {
 		return errors.New("error: user_id cannot be empty")
 	}
 

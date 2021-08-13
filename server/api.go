@@ -172,14 +172,14 @@ func (p *Plugin) AddUserToChannel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := p.API.AddUserToChannel(channelID, channelMember.UserId, p.botID); err != nil {
+	if _, err := p.API.AddUserToChannel(channelID, channelMember.UserID, p.botID); err != nil {
 		p.API.LogDebug(fmt.Sprintf("Failed to add user to channel. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to add user to channel. Error: %v", err.Error()), http.StatusBadRequest)
 		return
 	}
 
 	if channelMember.Role == "channel_admin" {
-		if _, err := p.API.UpdateChannelMemberRoles(channelID, channelMember.UserId, channelMember.Role); err != nil {
+		if _, err := p.API.UpdateChannelMemberRoles(channelID, channelMember.UserID, channelMember.Role); err != nil {
 			p.API.LogDebug(fmt.Sprintf("Failed to make user the channel admin. Error: %v", err.Error()))
 			http.Error(w, fmt.Sprintf("Failed to make user the channel admin. Error: %v", err.Error()), http.StatusInternalServerError)
 			return
@@ -238,7 +238,7 @@ func (p *Plugin) UpdateChannelMemberRoles(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if _, err := p.API.UpdateChannelMemberRoles(channelID, channelMember.UserId, channelMember.Role); err != nil {
+	if _, err := p.API.UpdateChannelMemberRoles(channelID, channelMember.UserID, channelMember.Role); err != nil {
 		p.API.LogDebug(fmt.Sprintf("Failed to update roles for the user and channel. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to update roles for the user and channel. Error: %v", err.Error()), http.StatusInternalServerError)
 		return
