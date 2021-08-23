@@ -19,11 +19,13 @@ func GetPageAndPerPage(r *http.Request) (page, perPage int) {
 		page = val
 	}
 
-	if val, err := strconv.Atoi(query.Get("per_page")); err != nil || val < 0 {
+	val, err := strconv.Atoi(query.Get("per_page"))
+	switch {
+	case err != nil || val < 0:
 		perPage = PerPageDefault
-	} else if val > PerPageMaximum {
+	case val > PerPageMaximum:
 		perPage = PerPageMaximum
-	} else {
+	default:
 		perPage = val
 	}
 
