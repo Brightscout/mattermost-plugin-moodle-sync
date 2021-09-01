@@ -105,6 +105,34 @@ func (p *Plugin) createChannel(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(createdChannel.ToJson()))
 }
 
+func (p *Plugin) handleGetUserErrorAndResponse(w http.ResponseWriter, user *model.User, err *model.AppError) bool {
+	if err == nil && user.DeleteAt == 0 {
+		_, _ = w.Write([]byte(user.ToJson()))
+		return true
+	}
+
+	if err != nil {
+		// If failed to get user by id, just log the error and continue to see if we can get by email
+		p.API.LogWarn(fmt.Sprintf("Failed to get user by id. Error: %v", err.Error()))
+		return false
+	}
+
+	if user.DeleteAt != 0 {
+		// If user is present but deactivated, then activate and return the user
+		if err = p.API.UpdateUserActive(user.Id, true); err != nil {
+			p.API.LogWarn(fmt.Sprintf("Failed to activate user. Error: %s", err.Error()))
+			http.Error(w, fmt.Sprintf("Failed to activate user. Error: %s", err.Error()), err.StatusCode)
+			return true
+		}
+
+		user.DeleteAt = 0
+		_, _ = w.Write([]byte(user.ToJson()))
+		return true
+	}
+
+	return false
+}
+
 func (p *Plugin) getOrCreateUserInTeam(w http.ResponseWriter, r *http.Request) {
 	userObj := serializer.UserFromJSON(r.Body)
 	if err := userObj.Validate(); err != nil {
@@ -118,48 +146,13 @@ func (p *Plugin) getOrCreateUserInTeam(w http.ResponseWriter, r *http.Request) {
 	// Check if id is given for the user
 	if userObj.ID != "" {
 		user, err := p.API.GetUser(userObj.ID)
-		if err == nil && user.DeleteAt == 0 {
-			_, _ = w.Write([]byte(user.ToJson()))
-			return
-		}
-
-		if err != nil {
-			// If failed to get user by id, just log the error and continue to see if we can get by email
-			p.API.LogDebug(fmt.Sprintf("Failed to get user by id. Error: %v", err.Error()))
-		} else if user.DeleteAt != 0 {
-			// If user is present but deactivated, then activate and return the user
-			if err = p.API.UpdateUserActive(user.Id, true); err != nil {
-				p.API.LogDebug(fmt.Sprintf("Failed to activate user. Error: %s", err.Error()))
-				http.Error(w, fmt.Sprintf("Failed to activate user. Error: %s", err.Error()), err.StatusCode)
-				return
-			}
-
-			user.DeleteAt = 0
-			_, _ = w.Write([]byte(user.ToJson()))
+		if isWorkFinished := p.handleGetUserErrorAndResponse(w, user, err); isWorkFinished {
 			return
 		}
 	}
 
 	user, err := p.API.GetUserByEmail(userObj.Email)
-	if err == nil && user.DeleteAt == 0 {
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(user.ToJson()))
-		return
-	}
-
-	if err != nil {
-		// If failed to get user by email, just log the error and continue to create the user
-		p.API.LogDebug(fmt.Sprintf("Failed to get user by email. Error: %v", err.Error()))
-	} else if user.DeleteAt != 0 {
-		// If user is present but deactivated, then activate and return the user
-		if err = p.API.UpdateUserActive(user.Id, true); err != nil {
-			p.API.LogDebug(fmt.Sprintf("Failed to activate user. Error: %s", err.Error()))
-			http.Error(w, fmt.Sprintf("Failed to activate user. Error: %s", err.Error()), err.StatusCode)
-			return
-		}
-
-		user.DeleteAt = 0
-		_, _ = w.Write([]byte(user.ToJson()))
+	if isWorkFinished := p.handleGetUserErrorAndResponse(w, user, err); isWorkFinished {
 		return
 	}
 
