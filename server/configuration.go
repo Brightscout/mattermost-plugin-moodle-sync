@@ -49,13 +49,13 @@ func (c *configuration) IsValid() error {
 	}
 
 	if len(c.BotUserName) == 0 {
-		return errors.New("Bot Username cannot be empty")
+		return errors.New("bot Username cannot be empty")
 	}
 	if len(c.BotDisplayName) == 0 {
-		return errors.New("Bot Display Name cannot be empty")
+		return errors.New("bot Display Name cannot be empty")
 	}
 	if len(c.BotDescription) == 0 {
-		return errors.New("Bot Description cannot be empty")
+		return errors.New("bot Description cannot be empty")
 	}
 
 	return nil
