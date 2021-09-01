@@ -35,7 +35,7 @@ func (p *Plugin) InitAPI() *mux.Router {
 	s.HandleFunc(constants.RemoveUserFromChannel, p.handleAuthRequired(p.RemoveUserFromChannel)).Methods(http.MethodDelete)
 	s.HandleFunc(constants.UpdateChannelMemberRoles, p.handleAuthRequired(p.UpdateChannelMemberRoles)).Methods(http.MethodPatch)
 	s.HandleFunc(constants.GetChannelMembers, p.handleAuthRequired(p.GetChannelMembers)).Methods(http.MethodGet)
-	s.HandleFunc(constants.PatchUser, p.handleAuthRequired(p.patchUser)).Methods(http.MethodPatch)
+	s.HandleFunc(constants.UpdateUser, p.handleAuthRequired(p.updateUser)).Methods(http.MethodPatch)
 
 	// 404 handler
 	r.Handle("{anything:.*}", http.NotFoundHandler())
@@ -113,29 +113,55 @@ func (p *Plugin) getOrCreateUserInTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
+
+	// Check if id is given for the user
 	if userObj.ID != "" {
 		user, err := p.API.GetUser(userObj.ID)
 		if err == nil && user.DeleteAt == 0 {
-			w.Header().Set("Content-Type", "application/json")
 			_, _ = w.Write([]byte(user.ToJson()))
 			return
 		}
 
 		if err != nil {
+			// If failed to get user by id, just log the error and continue to see if we can get by email
 			p.API.LogDebug(fmt.Sprintf("Failed to get user by id. Error: %v", err.Error()))
 		} else if user.DeleteAt != 0 {
-			p.API.LogDebug("Failed to get user by id. Error: User has been deleted")
+			// If user is present but deactivated, then activate and return the user
+			if err = p.API.UpdateUserActive(user.Id, true); err != nil {
+				p.API.LogDebug(fmt.Sprintf("Failed to activate user. Error: %s", err.Error()))
+				http.Error(w, fmt.Sprintf("Failed to activate user. Error: %s", err.Error()), err.StatusCode)
+				return
+			}
+
+			user.DeleteAt = 0
+			_, _ = w.Write([]byte(user.ToJson()))
+			return
 		}
 	}
 
 	user, err := p.API.GetUserByEmail(userObj.Email)
-	if err == nil {
+	if err == nil && user.DeleteAt == 0 {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(user.ToJson()))
 		return
 	}
 
-	p.API.LogDebug(fmt.Sprintf("Failed to get user by email. Error: %v", err.Error()))
+	if err != nil {
+		// If failed to get user by email, just log the error and continue to create the user
+		p.API.LogDebug(fmt.Sprintf("Failed to get user by email. Error: %v", err.Error()))
+	} else if user.DeleteAt != 0 {
+		// If user is present but deactivated, then activate and return the user
+		if err = p.API.UpdateUserActive(user.Id, true); err != nil {
+			p.API.LogDebug(fmt.Sprintf("Failed to activate user. Error: %s", err.Error()))
+			http.Error(w, fmt.Sprintf("Failed to activate user. Error: %s", err.Error()), err.StatusCode)
+			return
+		}
+
+		user.DeleteAt = 0
+		_, _ = w.Write([]byte(user.ToJson()))
+		return
+	}
 
 	team, teamErr := p.API.GetTeamByName(userObj.TeamName)
 	if teamErr != nil {
@@ -162,6 +188,7 @@ func (p *Plugin) getOrCreateUserInTeam(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(createdUser.ToJson()))
 }
 
+// TODO: Remove if not needed in the future
 func (p *Plugin) GetUserByEmail(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	email := params["email"]
@@ -360,7 +387,7 @@ func (p *Plugin) GetChannelMembers(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(members.ToJSON()))
 }
 
-func (p *Plugin) patchUser(w http.ResponseWriter, r *http.Request) {
+func (p *Plugin) updateUser(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	userID := params["user_id"]
 
@@ -377,15 +404,15 @@ func (p *Plugin) patchUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	patch := serializer.UserPatchFromJSON(r.Body)
-	userPatch, er := patch.ToMattermostUser(user)
+	userPatch := serializer.UserPatchFromJSON(r.Body)
+	user, er := userPatch.ToMattermostUser(user)
 	if er != nil {
 		p.API.LogDebug(er.Error())
 		http.Error(w, er.Error(), http.StatusBadRequest)
 		return
 	}
 
-	updatedUser, err := p.API.UpdateUser(userPatch)
+	updatedUser, err := p.API.UpdateUser(user)
 	if err != nil {
 		p.API.LogDebug(fmt.Sprintf("Failed to update user. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to update user. Error: %v", err.DetailedError), err.StatusCode)
