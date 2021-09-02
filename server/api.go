@@ -105,31 +105,29 @@ func (p *Plugin) createChannel(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(createdChannel.ToJson()))
 }
 
-func (p *Plugin) handleGetUserErrorAndResponse(w http.ResponseWriter, user *model.User, err *model.AppError) bool {
-	if err == nil && user.DeleteAt == 0 {
-		_, _ = w.Write([]byte(user.ToJson()))
-		return true
-	}
-
-	if err != nil {
-		// If failed to get user by id, just log the error and continue to see if we can get by email
+func (p *Plugin) handleUserErrorAndActivateIfNeeded(w http.ResponseWriter, user *model.User, err *model.AppError) (conitnueUserCreation bool) {
+	if err != nil && err.StatusCode == http.StatusNotFound {
+		// If the user was not found, log the error and continue with user creation
 		p.API.LogWarn(fmt.Sprintf("Failed to get user by id. Error: %v", err.Error()))
-		return false
+		return true
 	}
 
 	if user.DeleteAt != 0 {
-		// If user is present but deactivated, then activate and return the user
+		// If user is present but deactivated, then activate the user
 		if err = p.API.UpdateUserActive(user.Id, true); err != nil {
+			// If user activation failed, return the error
 			p.API.LogWarn(fmt.Sprintf("Failed to activate user. Error: %s", err.Error()))
 			http.Error(w, fmt.Sprintf("Failed to activate user. Error: %s", err.Error()), err.StatusCode)
-			return true
+			return false
 		}
 
+		// User was activated so update the DeleteAt field of the user and return it
 		user.DeleteAt = 0
 		_, _ = w.Write([]byte(user.ToJson()))
-		return true
+		return false
 	}
 
+	_, _ = w.Write([]byte(user.ToJson()))
 	return false
 }
 
@@ -146,13 +144,13 @@ func (p *Plugin) getOrCreateUserInTeam(w http.ResponseWriter, r *http.Request) {
 	// Check if id is given for the user
 	if userObj.ID != "" {
 		user, err := p.API.GetUser(userObj.ID)
-		if isWorkFinished := p.handleGetUserErrorAndResponse(w, user, err); isWorkFinished {
+		if conitnueUserCreation := p.handleUserErrorAndActivateIfNeeded(w, user, err); !conitnueUserCreation {
 			return
 		}
 	}
 
 	user, err := p.API.GetUserByEmail(userObj.Email)
-	if isWorkFinished := p.handleGetUserErrorAndResponse(w, user, err); isWorkFinished {
+	if conitnueUserCreation := p.handleUserErrorAndActivateIfNeeded(w, user, err); !conitnueUserCreation {
 		return
 	}
 
