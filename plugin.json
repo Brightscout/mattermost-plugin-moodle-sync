@@ -46,7 +46,7 @@
                 "display_name": "Moodle Bot Description:",
                 "type": "text",
                 "help_text": "",
-                "default": "A bot account created by the moodle notification plugin."
+                "default": "A bot account created by the moodle sync plugin."
             }
         ]
     }
