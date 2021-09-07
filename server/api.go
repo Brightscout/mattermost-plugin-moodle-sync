@@ -29,6 +29,8 @@ func (p *Plugin) InitAPI() *mux.Router {
 	// Add the custom plugin routes here
 	s.HandleFunc(constants.PathTest, p.handleAuthRequired(p.handleTest)).Methods(http.MethodPost)
 	s.HandleFunc(constants.CreateChannel, p.handleAuthRequired(p.createChannel)).Methods(http.MethodPost)
+	s.HandleFunc(constants.ArchiveChannel, p.handleAuthRequired(p.archiveChannel)).Methods(http.MethodDelete)
+	s.HandleFunc(constants.UnarchiveChannel, p.handleAuthRequired(p.unarchiveChannel)).Methods(http.MethodPost)
 	s.HandleFunc(constants.GetOrCreateUserInTeam, p.handleAuthRequired(p.getOrCreateUserInTeam)).Methods(http.MethodPost)
 	s.HandleFunc(constants.GetUserByEmail, p.handleAuthRequired(p.GetUserByEmail)).Methods(http.MethodGet)
 	s.HandleFunc(constants.AddUserToChannel, p.handleAuthRequired(p.AddUserToChannel)).Methods(http.MethodPost)
@@ -129,6 +131,64 @@ func (p *Plugin) handleUserErrorAndActivateIfNeeded(w http.ResponseWriter, user 
 
 	_, _ = w.Write([]byte(user.ToJson()))
 	return false
+}
+
+// Unarchives a channel at Mattermost
+func (p *Plugin) unarchiveChannel(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	channelID := params["channel_id"]
+
+	if !model.IsValidId(channelID) {
+		p.API.LogError("channel id is not valid")
+		http.Error(w, "channel id is not valid", http.StatusBadRequest)
+		return
+	}
+
+	channel, channelErr := p.API.GetChannel(channelID)
+	if channelErr != nil {
+		http.Error(w, fmt.Sprintf("Invalid channel id. Error: %v", channelErr.Error()), channelErr.StatusCode)
+		return
+	}
+
+	updateChannel := model.Channel{
+		Id:          channel.Id,
+		DisplayName: channel.DisplayName,
+		Name:        channel.Name,
+		Type:        model.CHANNEL_PRIVATE,
+		TeamId:      channel.TeamId,
+		CreateAt:    channel.CreateAt,
+		DeleteAt:    0, // unarchives the channel
+	}
+
+	_, err := p.API.UpdateChannel(&updateChannel)
+
+	if err != nil {
+		p.API.LogDebug(fmt.Sprintf("Failed to delete channel. Error: %v", err.Error()))
+		http.Error(w, fmt.Sprintf("Failed to delete Error: %v", err.Error()), err.StatusCode)
+		return
+	}
+
+	returnStatusOK(w)
+}
+
+// Archives/deletes a channel at Mattermost
+func (p *Plugin) archiveChannel(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	channelID := params["channel_id"]
+
+	if !model.IsValidId(channelID) {
+		p.API.LogError("channel id is not valid")
+		http.Error(w, "channel id is not valid", http.StatusBadRequest)
+		return
+	}
+
+	if err := p.API.DeleteChannel(channelID); err != nil {
+		p.API.LogDebug(fmt.Sprintf("Failed to archive channel. Error: %v", err.Error()))
+		http.Error(w, fmt.Sprintf("Failed to archive channel. Error: %v", err.Error()), err.StatusCode)
+		return
+	}
+
+	returnStatusOK(w)
 }
 
 func (p *Plugin) getOrCreateUserInTeam(w http.ResponseWriter, r *http.Request) {
