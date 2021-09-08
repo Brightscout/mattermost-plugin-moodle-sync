@@ -38,6 +38,7 @@ func (p *Plugin) InitAPI() *mux.Router {
 	s.HandleFunc(constants.UpdateChannelMemberRoles, p.handleAuthRequired(p.UpdateChannelMemberRoles)).Methods(http.MethodPatch)
 	s.HandleFunc(constants.GetChannelMembers, p.handleAuthRequired(p.GetChannelMembers)).Methods(http.MethodGet)
 	s.HandleFunc(constants.UpdateUser, p.handleAuthRequired(p.updateUser)).Methods(http.MethodPatch)
+	s.HandleFunc(constants.DeleteUser, p.handleAuthRequired(p.deleteUser)).Methods(http.MethodDelete)
 
 	// 404 handler
 	r.Handle("{anything:.*}", http.NotFoundHandler())
@@ -472,6 +473,25 @@ func (p *Plugin) updateUser(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(updatedUser.ToJson()))
+}
+
+func (p *Plugin) deleteUser(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	userID := params["user_id"]
+
+	if !model.IsValidId(userID) {
+		p.API.LogError("user id is not valid")
+		http.Error(w, "user id is not valid", http.StatusBadRequest)
+		return
+	}
+
+	if err := p.API.DeleteUser(userID); err != nil {
+		p.API.LogDebug(fmt.Sprintf("Failed to delete user. Error: %v", err.Error()))
+		http.Error(w, fmt.Sprintf("Failed to delete user. Error: %v", err.Error()), err.StatusCode)
+		return
+	}
+
+	returnStatusOK(w)
 }
 
 func returnStatusOK(w http.ResponseWriter) {
