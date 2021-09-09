@@ -8,9 +8,10 @@ const (
 	GetOrCreateUserInTeam    = "/users"
 	UpdateUser               = "/users/{user_id:[A-Za-z0-9]+}"
 	DeleteUser               = "/users/{user_id:[A-Za-z0-9]+}"
-	GetUserByEmail           = "/users/{email}"
+	GetUserByUsername        = "/users/{username}"
 	AddUserToChannel         = "/channels/{channel_id:[A-Za-z0-9]+}/members"
 	GetChannelMembers        = "/channels/{channel_id:[A-Za-z0-9]+}/members"
 	RemoveUserFromChannel    = "/channels/{channel_id:[A-Za-z0-9]+}/members/{user_id:[A-Za-z0-9]+}"
 	UpdateChannelMemberRoles = "/channels/{channel_id:[A-Za-z0-9]+}/members/roles"
+	GetChannel               = "/channels/{channel_id:[A-Za-z0-9]+}"
 )
