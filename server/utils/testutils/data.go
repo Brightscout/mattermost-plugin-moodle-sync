@@ -13,7 +13,7 @@ func GetSecret() string {
 }
 
 func GetID() string {
-	return api4.GenerateTestId()
+	return "sfmq19kpztg5iy47ebe51hb31w"
 }
 
 func GetSerializerChannel() serializer.Channel {

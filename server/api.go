@@ -72,6 +72,7 @@ func (p *Plugin) createChannel(w http.ResponseWriter, r *http.Request) {
 
 	team, teamErr := p.API.GetTeamByName(channelObj.TeamName)
 	if teamErr != nil {
+		p.API.LogError(fmt.Sprintf("Invalid team name. Error: %v", teamErr.Error()))
 		http.Error(w, fmt.Sprintf("Invalid team name. Error: %v", teamErr.Error()), teamErr.StatusCode)
 		return
 	}
@@ -216,6 +217,7 @@ func (p *Plugin) getOrCreateUserInTeam(w http.ResponseWriter, r *http.Request) {
 
 	team, teamErr := p.API.GetTeamByName(userObj.TeamName)
 	if teamErr != nil {
+		p.API.LogError(fmt.Sprintf("Invalid team name. Error: %v", teamErr.Error()))
 		http.Error(w, fmt.Sprintf("Invalid team name. Error: %v", teamErr.Error()), teamErr.StatusCode)
 		return
 	}
