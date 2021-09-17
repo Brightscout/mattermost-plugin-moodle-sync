@@ -342,9 +342,7 @@ func TestAddUserToChannel(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			assert := assert.New(t)
 
-			fmt.Println("call")
 			api, payload := test.SetupAPI(&plugintest.API{})
-			fmt.Println("received")
 			reqBody, err := json.Marshal(payload)
 			require.Nil(t, err)
 
