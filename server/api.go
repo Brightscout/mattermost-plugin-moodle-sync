@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"runtime/debug"
-	"strings"
 
 	"github.com/Brightscout/x-mattermost-plugin-moodle-sync/server/constants"
 	"github.com/Brightscout/x-mattermost-plugin-moodle-sync/server/serializer"
@@ -32,13 +31,14 @@ func (p *Plugin) InitAPI() *mux.Router {
 	s.HandleFunc(constants.ArchiveChannel, p.handleAuthRequired(p.archiveChannel)).Methods(http.MethodDelete)
 	s.HandleFunc(constants.UnarchiveChannel, p.handleAuthRequired(p.unarchiveChannel)).Methods(http.MethodPost)
 	s.HandleFunc(constants.GetOrCreateUserInTeam, p.handleAuthRequired(p.getOrCreateUserInTeam)).Methods(http.MethodPost)
-	s.HandleFunc(constants.GetUserByEmail, p.handleAuthRequired(p.GetUserByEmail)).Methods(http.MethodGet)
+	s.HandleFunc(constants.GetUserByUsername, p.handleAuthRequired(p.GetUserByUsername)).Methods(http.MethodGet)
 	s.HandleFunc(constants.AddUserToChannel, p.handleAuthRequired(p.AddUserToChannel)).Methods(http.MethodPost)
 	s.HandleFunc(constants.RemoveUserFromChannel, p.handleAuthRequired(p.RemoveUserFromChannel)).Methods(http.MethodDelete)
 	s.HandleFunc(constants.UpdateChannelMemberRoles, p.handleAuthRequired(p.UpdateChannelMemberRoles)).Methods(http.MethodPatch)
 	s.HandleFunc(constants.GetChannelMembers, p.handleAuthRequired(p.GetChannelMembers)).Methods(http.MethodGet)
 	s.HandleFunc(constants.UpdateUser, p.handleAuthRequired(p.updateUser)).Methods(http.MethodPatch)
 	s.HandleFunc(constants.DeleteUser, p.handleAuthRequired(p.deleteUser)).Methods(http.MethodDelete)
+	s.HandleFunc(constants.GetChannel, p.handleAuthRequired(p.GetChannel)).Methods(http.MethodGet)
 
 	// 404 handler
 	r.Handle("{anything:.*}", http.NotFoundHandler())
@@ -241,26 +241,45 @@ func (p *Plugin) getOrCreateUserInTeam(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(createdUser.ToJson()))
 }
 
-// TODO: Remove if not needed in the future
-func (p *Plugin) GetUserByEmail(w http.ResponseWriter, r *http.Request) {
+func (p *Plugin) GetUserByUsername(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	email := params["email"]
-	email = strings.ToLower(email)
-	if !model.IsValidEmail(email) {
-		p.API.LogError("email is not valid")
-		http.Error(w, "email is not valid", http.StatusBadRequest)
+	username := params["username"]
+	if !model.IsValidUsername(username) {
+		p.API.LogError("username is not valid")
+		http.Error(w, "username is not valid", http.StatusBadRequest)
 		return
 	}
 
-	user, err := p.API.GetUserByEmail(email)
+	user, err := p.API.GetUserByUsername(username)
 	if err != nil {
-		p.API.LogDebug(fmt.Sprintf("Invalid email. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Invalid username. Error: %v", err.Error()))
 		http.Error(w, err.Error(), err.StatusCode)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write([]byte(user.ToJson()))
+}
+
+func (p *Plugin) GetChannel(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	channelID := params["channel_id"]
+
+	if !model.IsValidId(channelID) {
+		p.API.LogError("channel id is not valid")
+		http.Error(w, "channel id is not valid", http.StatusBadRequest)
+		return
+	}
+
+	channel, err := p.API.GetChannel(channelID)
+	if err != nil {
+		p.API.LogError(fmt.Sprintf("Invalid channel id. Error: %v", err.Error()))
+		http.Error(w, err.Error(), err.StatusCode)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write([]byte(channel.ToJson()))
 }
 
 func (p *Plugin) AddUserToChannel(w http.ResponseWriter, r *http.Request) {
