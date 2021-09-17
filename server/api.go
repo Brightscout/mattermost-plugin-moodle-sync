@@ -65,13 +65,14 @@ func (p *Plugin) handleTest(w http.ResponseWriter, r *http.Request) {
 func (p *Plugin) createChannel(w http.ResponseWriter, r *http.Request) {
 	channelObj := serializer.ChannelFromJSON(r.Body)
 	if err := channelObj.Validate(); err != nil {
-		p.API.LogDebug(err.Error())
+		p.API.LogError(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	team, teamErr := p.API.GetTeamByName(channelObj.TeamName)
 	if teamErr != nil {
+		p.API.LogError(fmt.Sprintf("Invalid team name. Error: %v", teamErr.Error()))
 		http.Error(w, fmt.Sprintf("Invalid team name. Error: %v", teamErr.Error()), teamErr.StatusCode)
 		return
 	}
@@ -86,19 +87,19 @@ func (p *Plugin) createChannel(w http.ResponseWriter, r *http.Request) {
 
 	createdChannel, err := p.API.CreateChannel(channel)
 	if err != nil {
-		p.API.LogDebug(fmt.Sprintf("Failed to create channel. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Failed to create channel. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to create channel. Error: %v", err.Error()), err.StatusCode)
 		return
 	}
 
 	if _, err = p.API.CreateTeamMember(team.Id, p.botID); err != nil {
-		p.API.LogDebug(fmt.Sprintf("Failed to add bot to team. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Failed to add bot to team. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to add bot to team. Error: %v", err.Error()), err.StatusCode)
 		return
 	}
 
 	if _, err = p.API.AddChannelMember(createdChannel.Id, p.botID); err != nil {
-		p.API.LogDebug(fmt.Sprintf("Failed to add bot to channel. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Failed to add bot to channel. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to add bot to channel. Error: %v", err.Error()), err.StatusCode)
 		return
 	}
@@ -119,7 +120,7 @@ func (p *Plugin) handleUserErrorAndActivateIfNeeded(w http.ResponseWriter, user 
 		// If user is present but deactivated, then activate the user
 		if err = p.API.UpdateUserActive(user.Id, true); err != nil {
 			// If user activation failed, return the error
-			p.API.LogWarn(fmt.Sprintf("Failed to activate user. Error: %s", err.Error()))
+			p.API.LogError(fmt.Sprintf("Failed to activate user. Error: %s", err.Error()))
 			http.Error(w, fmt.Sprintf("Failed to activate user. Error: %s", err.Error()), err.StatusCode)
 			return false
 		}
@@ -162,9 +163,8 @@ func (p *Plugin) unarchiveChannel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_, err := p.API.UpdateChannel(&updateChannel)
-
 	if err != nil {
-		p.API.LogDebug(fmt.Sprintf("Failed to delete channel. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Failed to delete channel. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to delete Error: %v", err.Error()), err.StatusCode)
 		return
 	}
@@ -184,7 +184,7 @@ func (p *Plugin) archiveChannel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := p.API.DeleteChannel(channelID); err != nil {
-		p.API.LogDebug(fmt.Sprintf("Failed to archive channel. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Failed to archive channel. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to archive channel. Error: %v", err.Error()), err.StatusCode)
 		return
 	}
@@ -195,7 +195,7 @@ func (p *Plugin) archiveChannel(w http.ResponseWriter, r *http.Request) {
 func (p *Plugin) getOrCreateUserInTeam(w http.ResponseWriter, r *http.Request) {
 	userObj := serializer.UserFromJSON(r.Body)
 	if err := userObj.Validate(); err != nil {
-		p.API.LogDebug(err.Error())
+		p.API.LogError(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -217,6 +217,7 @@ func (p *Plugin) getOrCreateUserInTeam(w http.ResponseWriter, r *http.Request) {
 
 	team, teamErr := p.API.GetTeamByName(userObj.TeamName)
 	if teamErr != nil {
+		p.API.LogError(fmt.Sprintf("Invalid team name. Error: %v", teamErr.Error()))
 		http.Error(w, fmt.Sprintf("Invalid team name. Error: %v", teamErr.Error()), teamErr.StatusCode)
 		return
 	}
@@ -224,13 +225,13 @@ func (p *Plugin) getOrCreateUserInTeam(w http.ResponseWriter, r *http.Request) {
 	user = userObj.ToMattermostUser()
 	createdUser, err := p.API.CreateUser(user)
 	if err != nil {
-		p.API.LogDebug(fmt.Sprintf("Failed to create user. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Failed to create user. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to create user. Error: %v", err.Error()), err.StatusCode)
 		return
 	}
 
 	if _, err = p.API.CreateTeamMember(team.Id, createdUser.Id); err != nil {
-		p.API.LogDebug(fmt.Sprintf("Failed to add user to team. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Failed to add user to team. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to add user to team. Error: %v", err.Error()), err.StatusCode)
 		return
 	}
@@ -273,20 +274,20 @@ func (p *Plugin) AddUserToChannel(w http.ResponseWriter, r *http.Request) {
 
 	channelMember := serializer.ChannelMemberFromJSON(r.Body)
 	if err := channelMember.Validate(); err != nil {
-		p.API.LogDebug(err.Error())
+		p.API.LogError(err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	if _, err := p.API.AddUserToChannel(channelID, channelMember.UserID, p.botID); err != nil {
-		p.API.LogDebug(fmt.Sprintf("Failed to add user to channel. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Failed to add user to channel. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to add user to channel. Error: %v", err.Error()), err.StatusCode)
 		return
 	}
 
 	if channelMember.Role == "channel_admin" {
 		if _, err := p.API.UpdateChannelMemberRoles(channelID, channelMember.UserID, channelMember.Role); err != nil {
-			p.API.LogDebug(fmt.Sprintf("Failed to make user the channel admin. Error: %v", err.Error()))
+			p.API.LogError(fmt.Sprintf("Failed to make user the channel admin. Error: %v", err.Error()))
 			http.Error(w, fmt.Sprintf("Failed to make user the channel admin. Error: %v", err.Error()), err.StatusCode)
 			return
 		}
@@ -327,7 +328,7 @@ func (p *Plugin) RemoveUserFromChannel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := p.API.DeleteChannelMember(channelID, userID); err != nil {
-		p.API.LogDebug(fmt.Sprintf("Failed to remove user from channel. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Failed to remove user from channel. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to remove user from channel. Error: %v", err.Error()), err.StatusCode)
 		return
 	}
@@ -401,7 +402,7 @@ func (p *Plugin) GetChannelMembers(w http.ResponseWriter, r *http.Request) {
 	page, perPage := utils.GetPageAndPerPage(r)
 	channelMembers, err := p.API.GetChannelMembers(channelID, page, perPage)
 	if err != nil {
-		p.API.LogDebug(fmt.Sprintf("Failed to fetch channel members. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Failed to fetch channel members. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to fetch channel members. Error: %v", err.Error()), err.StatusCode)
 		return
 	}
@@ -416,7 +417,7 @@ func (p *Plugin) GetChannelMembers(w http.ResponseWriter, r *http.Request) {
 	for _, channelMember := range *channelMembers {
 		user, err := p.API.GetUser(channelMember.UserId)
 		if err != nil {
-			p.API.LogDebug(fmt.Sprintf("Failed to fetch user. Error: %v", err.Error()))
+			p.API.LogError(fmt.Sprintf("Failed to fetch user. Error: %v", err.Error()))
 			http.Error(w, fmt.Sprintf("Failed to fetch user. Error: %v", err.Error()), err.StatusCode)
 			return
 		}
@@ -486,7 +487,7 @@ func (p *Plugin) deleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := p.API.DeleteUser(userID); err != nil {
-		p.API.LogDebug(fmt.Sprintf("Failed to delete user. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Failed to delete user. Error: %v", err.Error()))
 		http.Error(w, fmt.Sprintf("Failed to delete user. Error: %v", err.Error()), err.StatusCode)
 		return
 	}
