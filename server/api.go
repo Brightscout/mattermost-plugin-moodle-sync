@@ -251,7 +251,7 @@ func (p *Plugin) GetUserByUsername(w http.ResponseWriter, r *http.Request) {
 
 	user, err := p.API.GetUserByUsername(username)
 	if err != nil {
-		p.API.LogDebug(fmt.Sprintf("Invalid username. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Invalid username. Error: %v", err.Error()))
 		http.Error(w, err.Error(), err.StatusCode)
 		return
 	}
@@ -272,7 +272,7 @@ func (p *Plugin) GetChannel(w http.ResponseWriter, r *http.Request) {
 
 	channel, err := p.API.GetChannel(channelID)
 	if err != nil {
-		p.API.LogDebug(fmt.Sprintf("Invalid channel id. Error: %v", err.Error()))
+		p.API.LogError(fmt.Sprintf("Invalid channel id. Error: %v", err.Error()))
 		http.Error(w, err.Error(), err.StatusCode)
 		return
 	}
