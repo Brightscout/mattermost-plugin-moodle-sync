@@ -1,10 +1,14 @@
 # Mattermost Moodle Sync Plugin
+
+This plugin is a required companion of the [Mattermost Sync for Moodle plugin](https://github.com/Brightscout/mod_mattermost). 
+
 ## Installation
 
-1. You can get the latest version on the [releases page](https://github.com/Brightscout/x-mattermost-plugin-moodle-sync/releases).
+1. You can get the latest version on the [releases page](https://github.com/Brightscout/mattermost-plugin-moodle-sync/releases).
 1. Upload this file in the Mattermost **System Console > Plugins > Management** page to install the plugin. To learn more about how to upload a plugin, [see the documentation](https://docs.mattermost.com/administration/plugins.html#custom-plugins).
 1. After installing the plugin, you should go to the plugin's settings in System Console and set the Webhook Secret (more about this below).
 
+Please note that this plugin is a companion of the Moodle Plugin 
 
 ### System Console Settings
 
