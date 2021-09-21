@@ -2,7 +2,7 @@
     "id": "com.mattermost.moodle-sync",
     "name": "Moodle course sync plugin",
     "description": "Mattermost plugin to sync courses and users with Moodle.",
-    "version": "0.1.0",
+    "version": "1.0.0",
     "min_server_version": "5.12.0",
     "server": {
         "executables": {
